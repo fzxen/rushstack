@@ -1,16 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved. Licensed under the MIT license.
 // See LICENSE in the project root for license information.
 
-import { LockfileEntry, LockfileEntryFilter } from './LockfileEntry';
+import { LockfileEntry, LockfileEntryFilter, PnpmLockfileVersion } from './LockfileEntry';
 import { IDependencyType } from './LockfileDependency';
 import { Path } from '@lifaon/path';
 
 const serviceUrl: string = window.appContext.serviceUrl;
-
-export enum PnpmLockfileVersion {
-  V6,
-  V5
-}
 
 export interface IPackageJsonType {
   name: string;
@@ -31,6 +26,8 @@ export interface ILockfileImporterV6 {
     };
   };
 }
+export type ILockfileImporterV9 = ILockfileImporterV6;
+
 export interface ILockfileImporterV5 {
   specifiers?: Record<string, string>;
   dependencies?: Record<string, string>;
@@ -53,6 +50,59 @@ export interface ILockfilePackageType {
   };
 }
 
+export interface ILockfilePackageTypeV9 {
+  lockfileVersion: number | string;
+  importers: {
+    [key in string]: ILockfileImporterV9;
+  };
+  packages?: {
+    [key in string]: {
+      resolution: {
+        integrity: string;
+      };
+    };
+  };
+  snapshots?: {
+    [key in string]: {
+      dependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+      dev: boolean;
+    };
+  };
+}
+
+// 把ILockfilePackageTypeV9转换为ILockfilePackageType
+export function normalizeLockfileV9(lockfile: ILockfilePackageTypeV9): ILockfilePackageType {
+  const normalizedLockfile: Required<ILockfilePackageType> = {
+    lockfileVersion: lockfile.lockfileVersion,
+    importers: {},
+    packages: {}
+  };
+
+  for (const [importerKey, importerValue] of Object.entries(lockfile.importers)) {
+    if (importerKey === '.') {
+      continue;
+    }
+
+    normalizedLockfile.importers[importerKey] = importerValue;
+  }
+
+  if (lockfile.packages) {
+    for (const [dependencyKey, dependencyValue] of Object.entries(lockfile.packages)) {
+      const snapshotValue = lockfile.snapshots?.[dependencyKey];
+      if (!snapshotValue) {
+        continue;
+      }
+      normalizedLockfile.packages[dependencyKey] = {
+        ...dependencyValue,
+        ...snapshotValue
+      };
+    }
+  }
+
+  return normalizedLockfile;
+}
+
 /**
  * Transform any newer lockfile formats to the following format:
  * [packageName]:
@@ -63,7 +113,7 @@ function getImporterValue(
   importerValue: ILockfileImporterV5 | ILockfileImporterV6,
   pnpmLockfileVersion: PnpmLockfileVersion
 ): ILockfileImporterV5 {
-  if (pnpmLockfileVersion === PnpmLockfileVersion.V6) {
+  if (pnpmLockfileVersion === PnpmLockfileVersion.V6 || pnpmLockfileVersion === PnpmLockfileVersion.V9) {
     const v6ImporterValue = importerValue as ILockfileImporterV6;
     const v5ImporterValue: ILockfileImporterV5 = {
       specifiers: {},
@@ -91,13 +141,21 @@ function getImporterValue(
  * @returns A list of all the LockfileEntries in the lockfile.
  */
 export function generateLockfileGraph(
-  lockfile: ILockfilePackageType,
+  originLockfile: ILockfilePackageType | ILockfilePackageTypeV9,
   subspaceName?: string
 ): LockfileEntry[] {
   let pnpmLockfileVersion: PnpmLockfileVersion = PnpmLockfileVersion.V5;
-  if (`${lockfile.lockfileVersion}`.startsWith('6')) {
+  if (`${originLockfile.lockfileVersion}`.startsWith('6')) {
     pnpmLockfileVersion = PnpmLockfileVersion.V6;
+  } else if (`${originLockfile.lockfileVersion}`.startsWith('9')) {
+    pnpmLockfileVersion = PnpmLockfileVersion.V9;
   }
+
+  const lockfile =
+    pnpmLockfileVersion === PnpmLockfileVersion.V9
+      ? normalizeLockfileV9(originLockfile as ILockfilePackageTypeV9)
+      : (originLockfile as ILockfilePackageType);
+
   const allEntries: LockfileEntry[] = [];
   const allEntriesById: { [key in string]: LockfileEntry } = {};
 
@@ -126,7 +184,8 @@ export function generateLockfileGraph(
         kind: LockfileEntryFilter.Project,
         rawYamlData: getImporterValue(importerValue, pnpmLockfileVersion),
         duplicates,
-        subspaceName
+        subspaceName,
+        lockfileVersion: pnpmLockfileVersion
       });
       allImporters.push(importer);
       allEntries.push(importer);
@@ -144,7 +203,8 @@ export function generateLockfileGraph(
         rawEntryId: dependencyKey,
         kind: LockfileEntryFilter.Package,
         rawYamlData: dependencyValue,
-        subspaceName
+        subspaceName,
+        lockfileVersion: pnpmLockfileVersion
       });
 
       allPackages.push(currEntry);

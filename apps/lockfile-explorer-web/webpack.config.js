@@ -2,8 +2,10 @@
 
 const path = require('path');
 const createWebpackConfig = require('local-web-rig/profiles/app/webpack-base.config');
+const { buffer } = require('stream/consumers');
 
 module.exports = function createConfig(env, argv) {
+  env = { ...env, production: false };
   return createWebpackConfig({
     env: env,
     argv: argv,

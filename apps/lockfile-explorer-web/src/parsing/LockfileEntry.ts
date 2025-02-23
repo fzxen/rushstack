@@ -3,6 +3,7 @@
 
 import { Path } from '@lifaon/path';
 import { type ILockfileNode, LockfileDependency } from './LockfileDependency';
+import { parse } from '../helpers/parseDependenyPath';
 
 export enum LockfileEntryFilter {
   Project,
@@ -11,12 +12,19 @@ export enum LockfileEntryFilter {
   Doppelganger
 }
 
+export enum PnpmLockfileVersion {
+  V6,
+  V5,
+  V9
+}
+
 interface IProps {
   rawEntryId: string;
   kind: LockfileEntryFilter;
   rawYamlData: ILockfileNode;
   duplicates?: Set<string>;
   subspaceName?: string;
+  lockfileVersion: PnpmLockfileVersion;
 }
 
 /**
@@ -61,7 +69,7 @@ export class LockfileEntry {
   public entrySuffix: string = '';
 
   public constructor(data: IProps) {
-    const { rawEntryId, kind, rawYamlData, duplicates, subspaceName } = data;
+    const { rawEntryId, kind, rawYamlData, duplicates, subspaceName, lockfileVersion } = data;
     this.rawEntryId = rawEntryId;
     this.kind = kind;
 
@@ -71,7 +79,7 @@ export class LockfileEntry {
     }
 
     if (kind === LockfileEntryFilter.Project) {
-      const rootPackageJsonFolderPath = new Path(`common/temp/${subspaceName}/package.json`).dirname() || '';
+      const rootPackageJsonFolderPath = new Path(`common/temp/package.json`).dirname() || '';
       const packageJsonFolderPath = new Path('.').relative(
         new Path(rootPackageJsonFolderPath).concat(rawEntryId)
       );
@@ -96,29 +104,41 @@ export class LockfileEntry {
     } else {
       this.displayText = rawEntryId;
 
-      const match = LockfileEntry._packageEntryIdRegex.exec(rawEntryId);
+      if (lockfileVersion === PnpmLockfileVersion.V9) {
+        const { name, version, peersSuffix, nonSemverVersion } = parse(rawEntryId);
 
-      if (match) {
-        const [, packageName, versionPart] = match;
-        this.entryPackageName = packageName;
+        const entryPackageVersion = version ?? nonSemverVersion ?? '';
+        const entryPackageName = name ?? '';
+        this.entrySuffix = peersSuffix ?? '';
 
-        const underscoreIndex = versionPart.indexOf('_');
-        if (underscoreIndex >= 0) {
-          const version = versionPart.substring(0, underscoreIndex);
-          const suffix = versionPart.substring(underscoreIndex + 1);
+        this.entryPackageName = entryPackageName;
+        this.entryPackageVersion = entryPackageVersion;
+        this.displayText = entryPackageName + ' ' + entryPackageVersion;
+      } else {
+        const match = LockfileEntry._packageEntryIdRegex.exec(rawEntryId);
 
-          this.entryPackageVersion = version;
-          this.entrySuffix = suffix;
+        if (match) {
+          const [, packageName, versionPart] = match;
+          this.entryPackageName = packageName;
 
-          //       /@rushstack/eslint-config/3.0.1_eslint@8.21.0+typescript@4.7.4
-          // -->   @rushstack/eslint-config 3.0.1 (eslint@8.21.0+typescript@4.7.4)
-          this.displayText = packageName + ' ' + version + ' (' + suffix + ')';
-        } else {
-          this.entryPackageVersion = versionPart;
+          const underscoreIndex = versionPart.indexOf('_');
+          if (underscoreIndex >= 0) {
+            const version = versionPart.substring(0, underscoreIndex);
+            const suffix = versionPart.substring(underscoreIndex + 1);
 
-          //       /@rushstack/eslint-config/3.0.1
-          // -->   @rushstack/eslint-config 3.0.1
-          this.displayText = packageName + ' ' + versionPart;
+            this.entryPackageVersion = version;
+            this.entrySuffix = suffix;
+
+            //       /@rushstack/eslint-config/3.0.1_eslint@8.21.0+typescript@4.7.4
+            // -->   @rushstack/eslint-config 3.0.1 (eslint@8.21.0+typescript@4.7.4)
+            this.displayText = packageName + ' ' + version + ' (' + suffix + ')';
+          } else {
+            this.entryPackageVersion = versionPart;
+
+            //       /@rushstack/eslint-config/3.0.1
+            // -->   @rushstack/eslint-config 3.0.1
+            this.displayText = packageName + ' ' + versionPart;
+          }
         }
       }
 
@@ -127,7 +147,7 @@ export class LockfileEntry {
       //     /@babel+register@7.17.7_@babel+core@7.17.12
       //     /node_modules/@babel/register
       this.packageJsonFolderPath =
-        `common/temp/${subspaceName}/node_modules/.pnpm/` +
+        `common/temp/node_modules/.pnpm/` +
         this.entryPackageName.replace('/', '+') +
         '@' +
         this.entryPackageVersion +

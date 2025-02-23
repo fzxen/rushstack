@@ -43,7 +43,7 @@ export function getShrinkwrapFileMajorVersion(lockfileVersion: string | number):
     shrinkwrapFileMajorVersion = 0;
   }
 
-  if (shrinkwrapFileMajorVersion < 5 || shrinkwrapFileMajorVersion > 6) {
+  if (shrinkwrapFileMajorVersion < 5 || shrinkwrapFileMajorVersion > 9) {
     throw new Error('The current lockfile version is not supported.');
   }
 

@@ -275,6 +275,9 @@ importers:
       '@lifaon/path':
         specifier: ~2.1.0
         version: 2.1.0
+      '@pnpm/dependency-path':
+        specifier: ~5.1.7
+        version: 5.1.7
       '@reduxjs/toolkit':
         specifier: ~1.8.6
         version: 1.8.6(react-redux@8.0.7)(react@17.0.2)
@@ -293,6 +296,9 @@ importers:
       redux:
         specifier: ~4.2.0
         version: 4.2.1
+      semver:
+        specifier: ~7.5.4
+        version: 7.5.4
     devDependencies:
       '@rushstack/heft':
         specifier: workspace:*
@@ -303,9 +309,15 @@ importers:
       '@types/react-dom':
         specifier: 17.0.25
         version: 17.0.25
+      '@types/semver':
+        specifier: 7.5.0
+        version: 7.5.0
       local-web-rig:
         specifier: workspace:*
         version: link:../../rigs/local-web-rig
+      tslib:
+        specifier: ~2.3.1
+        version: 2.3.1
 
   ../../../apps/rundown:
     dependencies:
@@ -16836,8 +16848,9 @@ packages:
       shebang-command: 2.0.0
       which: 2.0.2
 
-  /crypto-browserify@3.12.0:
-    resolution: {integrity: sha512-fz4spIh+znjO2VjL+IdhEpRJ3YN6sMzITSBijk6FK2UvTqruSQW+/cCZTSNsMiZNvUeq0CqurF+dAbyiGOY6Wg==}
+  /crypto-browserify@3.12.1:
+    resolution: {integrity: sha512-r4ESw/IlusD17lgQi1O20Fa3qNnsckR126TdUuBgAu7GBYSIPvdNyONd3Zrxh0xCwA4+6w/TDArBPsMvhur+KQ==}
+    engines: {node: '>= 0.10'}
     dependencies:
       browserify-cipher: 1.0.1
       browserify-sign: 4.2.3
@@ -16845,6 +16858,7 @@ packages:
       create-hash: 1.2.0
       create-hmac: 1.1.7
       diffie-hellman: 5.0.3
+      hash-base: 3.0.4
       inherits: 2.0.4
       pbkdf2: 3.1.2
       public-encrypt: 4.0.3
@@ -23235,7 +23249,7 @@ packages:
       buffer: 4.9.2
       console-browserify: 1.2.0
       constants-browserify: 1.0.0
-      crypto-browserify: 3.12.0
+      crypto-browserify: 3.12.1
       domain-browser: 1.2.0
       events: 3.3.0
       https-browserify: 1.0.0
